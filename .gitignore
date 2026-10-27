@@ -1,0 +1,9 @@
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+*.local.json
+dsh-approval-notifier.json
+*.log

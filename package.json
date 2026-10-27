@@ -1,0 +1,53 @@
+{
+  "name": "dsh-approval-notifier",
+  "version": "0.3.0",
+  "description": "Native Windows notifications for DeepSeek Harness approval prompts: one desktop toast per permission request or pending ask_user_question, carrying the session it belongs to. Clicking switches to that session; an approval toast can be answered (allow once / reject) straight from the notification. A session already on screen is not announced at all.",
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "notification",
+    "toast",
+    "approval",
+    "permission"
+  ],
+  "type": "module",
+  "main": "lib/index.js",
+  "license": "MIT",
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots"
+      ],
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  }
+}

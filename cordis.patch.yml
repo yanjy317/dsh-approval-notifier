@@ -1,0 +1,21 @@
+# dsh-approval-notifier bundle patch: insert the plugin into a profile's layer
+# stack. The host half observes the durable `approval/asked` session event (and
+# the `user-questions/request` waterfall) and raises one of three things: an OS
+# toast, an in-app card, or nothing at all — depending on what the browser half
+# reports about the session currently on screen. The browser half
+# (`lib/client.js`) reports that state, streams the notice queue, and renders the
+# click-to-jump cards in `shell.overlay`. No settings or session data is ever
+# written beyond the plugin's own config/log files.
+#
+# Optional per-profile overrides go in the profile's own cordis.patch.yml as an
+# id-targeted config entry:
+#
+#   - id: dsh-approval-notifier
+#     config:
+#       sound: false
+#
+# Day-to-day toggles live in <DSH_HOME>/dsh-approval-notifier.json instead,
+# which is re-read on every notification (no restart).
+- insert:
+    - id: dsh-approval-notifier
+      name: 'dsh-approval-notifier'
