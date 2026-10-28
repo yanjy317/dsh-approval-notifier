@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_PRESENCE_TTL_MS, DELIVERY, createPresence, decideDelivery } from '../lib/presence.js';
+import { DEFAULT_FOREGROUND_TTL_MS, DEFAULT_PRESENCE_TTL_MS, DELIVERY, createPresence, decideDelivery } from '../lib/presence.js';
 
 /** A presence registry on a controllable clock. */
 function makePresence(options = {}) {
@@ -49,6 +49,30 @@ test('a report older than the TTL stops counting as live', () => {
   assert.equal(presence.live(), false);
   assert.equal(presence.showing('session-a'), false);
   assert.equal(presence.snapshot().pages.length, 0);
+});
+
+test('a page that goes quiet stops being "in front" long before it stops being live', () => {
+  const { presence, advance } = makePresence();
+  presence.report({ clientId: 'p1', sessionId: 'session-a', visible: true });
+  assert.equal(decideDelivery('session-a', presence, {}), DELIVERY.SILENT);
+
+  // Two empty 5 s polls of the notice stream: still looking at it.
+  advance(12000);
+  assert.equal(decideDelivery('session-a', presence, {}), DELIVERY.SILENT);
+
+  // Past the foreground window but inside the liveness one: the window may
+  // still be open, yet nothing may be swallowed any more.
+  advance(8000);
+  assert.equal(presence.live(), true, 'the page is still connected');
+  assert.equal(presence.showing('session-a'), false);
+  assert.equal(decideDelivery('session-a', presence, {}), DELIVERY.TOAST,
+    'a silent page must not be trusted to hold a prompt back');
+  assert.equal(decideDelivery('session-b', presence, {}), DELIVERY.TOAST);
+
+  const snapshot = presence.snapshot();
+  assert.equal(snapshot.foregroundTtlMs, DEFAULT_FOREGROUND_TTL_MS);
+  assert.equal(snapshot.pages[0].inFront, false);
+  assert.equal(snapshot.pages[0].visible, true);
 });
 
 test('a newer report replaces the previous state of the same page', () => {
