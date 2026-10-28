@@ -243,12 +243,16 @@ test('the stack renders one card per drawn notice, and nothing for the session o
   assert.equal(tree.type, 'div');
   assert.equal(tree.props.style, internals.STACK_STYLE);
   assert.equal(tree.props['data-dsh-approval-notifier'], 'cards');
-  assert.deepEqual(tree.props.children.map((card) => card.props.card.key), ['k2', 'k1']);
-  assert.equal(tree.props.children[0].type, client.NoticeCard);
+  // The stack also injects its stylesheet, so select the cards by type rather
+  // than by position.
+  const cardKeys = (node) => node.props.children
+    .filter((child) => child !== null && child.type === client.NoticeCard)
+    .map((card) => card.props.card.key);
+  assert.deepEqual(cardKeys(tree), ['k2', 'k1']);
 
   store.setView({ sessionId: 'session-b', foreground: true });
   const after = client.NoticeStack(props);
-  assert.deepEqual(after.props.children.map((card) => card.props.card.key), ['k1'], 'the session on screen is gone');
+  assert.deepEqual(cardKeys(after), ['k1'], 'the session on screen is gone');
 });
 
 test('reduceEvent shows, retires, and navigates', () => {
