@@ -332,6 +332,41 @@ test('hovering a card lifts it and tints its border to its own accent', () => {
   assert.match(calm.props.style.transition, /transform/u, 'the change is animated, not snapped');
 });
 
+test('a self-test notice is drawn in the approval skin but offers no buttons', () => {
+  // `?inapp=1` previews the approval layout, but it names no pending
+  // interaction, so 允许一次 / 拒绝 could only ever do nothing. Offering them
+  // would be a lie, and a click that silently does nothing reads as broken.
+  const { client, internals, mount } = loadClient();
+  const { store } = makeStore(internals);
+  const get = renderStack(mount, client, store);
+
+  store.add({ key: 'test|manual', kind: 'test', sessionId: 's1', title: '测试', lines: ['测试', '预览'] });
+  const card = cardFor(get(), client, 'test|manual');
+  assert.equal(card.props['data-kind'], 'approval', 'it still previews the approval look');
+  const labels = buttonLabels(card);
+  assert.equal(labels.includes('允许一次'), false, 'but it cannot be answered');
+  assert.equal(labels.includes('拒绝'), false);
+});
+
+test('a card whose approval is gone says so instead of swallowing the click', () => {
+  const { client, internals, mount } = loadClient();
+  const { store } = makeStore(internals);
+  const get = renderStack(mount, client, store);
+
+  store.add({ key: 'approval|a1', kind: 'approval', sessionId: 's1', title: 'T', lines: ['T'] });
+  assert.ok(buttonLabels(cardFor(get(), client, 'approval|a1')).includes('允许一次'));
+
+  // The approval was answered elsewhere, or replaced by a later one.
+  assert.equal(store.markStale('approval|a1', '这条审批已不在待处理状态'), true);
+  const stale = cardFor(get(), client, 'approval|a1');
+  assert.equal(buttonLabels(stale).includes('允许一次'), false, 'dead buttons are withdrawn');
+  assert.ok(textOf(stale).includes('这条审批已不在待处理状态'), 'and the card explains why');
+
+  // Marking a card that is not decidable, or is absent, is a no-op.
+  assert.equal(store.markStale('approval|a1', 'again'), false);
+  assert.equal(store.markStale('nope', 'x'), false);
+});
+
 test('the kind badge and age distinguish an approval from a question', () => {
   const { client, internals, mount } = loadClient();
   const { store, advance, at } = makeStore(internals);
