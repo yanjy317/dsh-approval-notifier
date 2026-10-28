@@ -343,6 +343,32 @@ test('?decide=1 gives the self-test toast the two approval buttons', async () =>
   assert.equal(pressed.decided, true);
 });
 
+test('a self-test key is retired once answered, so a stale toast cannot re-answer', async () => {
+  const { routes, spawn } = boot();
+  const testRoute = routes.find((route) => route.path.endsWith('/test'));
+  const response = fakeResponse();
+  await testRoute.handler(fakeRequest({ url: '/dsh-approval-notifier/test?silent=1&decide=1&session=session-1' }), response);
+  const payload = decodePayload(spawn.calls[0]);
+
+  const status = routes.find((route) => route.path.endsWith('/status'));
+  const readPending = async () => {
+    const res = fakeResponse();
+    await status.handler(fakeRequest({ url: '/dsh-approval-notifier/status' }), res);
+    return res.json().attention.pendingApprovals;
+  };
+
+  assert.equal(await readPending(), 1, 'the announced test approval is pending');
+
+  const pressed = await activateQuery(routes, actionQuery(payload.actions[0].arguments));
+  assert.equal(pressed.decided, true);
+  assert.equal(await readPending(), 0, 'answering it retires the key');
+
+  // A test approval has no `approval/decided` audit event behind it, so without
+  // the explicit delete the same stale toast could be pressed forever.
+  const again = await activateQuery(routes, actionQuery(payload.actions[0].arguments));
+  assert.equal(again.decided, false, 'the same button may not answer twice');
+});
+
 test('the test route can preview the in-app card', async () => {
   const { routes } = boot();
   const testRoute = routes.find((route) => route.path.endsWith('/test'));
