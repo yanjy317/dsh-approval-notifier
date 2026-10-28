@@ -148,6 +148,8 @@ export function boot(options = {}) {
     report: (message) => reports.push(message),
     // The script-host probe launches a real process; tests decide its verdict.
     probeScriptHost: options.probeScriptHost ?? (() => true),
+    // Registration would write to the real Start Menu; tests record it instead.
+    runShortcut: options.runShortcut,
   });
   return { ctx, listeners, routes, effects, logs, injections, reports, spawn, reg, desktop, handles, home };
 }

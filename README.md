@@ -37,6 +37,27 @@ dsh plugin add github:yanjy317/dsh-approval-notifier
 审批 toast 上的两颗按钮**不会**在宿主侧直接作答 —— 宿主把决定转发给页面，由页面去 resolve
 **同一个**待决审批，避免与 `approval/request` waterfall 竞争、导致应用内卡片残留。
 
+### 为什么必须注册 AppUserModelID
+
+插件启动后会为 `appId`（默认 `DSH.ApprovalNotifier`）在
+`%APPDATA%\Microsoft\Windows\Start Menu\Programs\<appId>.lnk` 建一个开始菜单快捷方式，
+并把 `System.AppUserModel.ID` 属性（经 `IPropertyStore`）写成同一个 id。
+
+这一步不能省：Win32 进程可以用**任意**字符串调 `CreateToastNotifier(id).Show()`，
+WinRT 会照收不误 —— `Show()` 不抛异常、`Setting` 一直报 `Enabled`、内容甚至被写进
+`wpndatabase`。但 shell **不会显示**它，因为它只能把 id 映射回一个已安装的应用；
+对未打包应用，这个映射就是上面那条快捷方式。缺了它，通知被静默丢弃：没有横幅、
+没有声音、通知中心里也没有。
+
+这也是本插件早期版本「看起来在发通知，实际什么也看不到」的原因。判断依据是
+`/status` 的 `toastIdentity` 字段（`ok`/`created`/`path`/`error`），**不要**相信
+`/test` 返回的 `ok: true` —— 它只说明 `Show()` 没抛异常。
+
+注册是幂等的：快捷方式已带正确 id 就原样保留，带了别的 id 才改写。改 `appId`
+会重建；`appId` 或可执行文件变更后才重新注册，不会每条通知都起一次 PowerShell。
+注册失败会退避 60 秒再试一次 —— 一个注定失败的机器（没有开始菜单、被策略锁住、
+缺 PowerShell）不该在每次调用上都白起一个 1.5 秒的子进程，但暂时的失败也必须能自愈。
+
 ## 配置
 
 日常开关放在 `<DSH_HOME>/dsh-approval-notifier.json`，每次通知时重新读取（mtime + size 缓存），
@@ -92,8 +113,10 @@ lib/notify.js      调用 toast.ps1 弹通知
 lib/presence.js    「该不该弹、弹哪种」的判定
 lib/message.js     通知文案
 lib/protocol.js    URL scheme 注册与处理
+lib/shortcut.js    AppUserModelID 注册（toast 身份）
 lib/focus.vbs      点击通知后置前窗口（GUI 子系统，不闪黑框）
 lib/toast.ps1      Windows toast 渲染
+lib/register-shortcut.ps1  建开始菜单快捷方式并写入 AppUserModelID
 lib/inbox.js       待决通知队列
 lib/session-read.js 读取会话上下文 / 审批策略
 lib/desktop.js     探测桌面版安装路径
