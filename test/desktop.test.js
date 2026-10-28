@@ -31,6 +31,43 @@ test('the install is found by walking up from the bundled node.exe', () => {
   assert.equal(install.iconPath, join(layout.resources, 'icon.png'));
 });
 
+test('the Electron layout is found when execPath is the desktop exe itself', () => {
+  // Newer builds ship resources/app.asar and no bundled node.exe at all, so the
+  // harness runs inside the Electron main process and process.execPath *is* the
+  // desktop exe. The old walk assumed the bundled-node depth unconditionally,
+  // climbed five levels above the install, and returned nothing -- which cost
+  // both the click target and the toast identity.
+  const root = mkdtempSync(join(tmpdir(), 'dsh-desktop-electron-'));
+  const app = join(root, 'DSH Desktop');
+  const resources = join(app, 'resources');
+  mkdirSync(resources, { recursive: true });
+  const exe = join(app, DEFAULT_EXE_NAME);
+  writeFileSync(exe, '');
+  writeFileSync(join(resources, 'icon.png'), '');
+  writeFileSync(join(resources, 'app.asar'), '');
+
+  const install = findDesktopInstall({ execPath: exe, env: {} });
+  assert.equal(install.appRoot, app);
+  assert.equal(install.exePath, exe);
+  assert.equal(install.processName, DEFAULT_EXE_NAME);
+  assert.equal(install.iconPath, join(resources, 'icon.png'));
+});
+
+test('an unusual launch depth still resolves to the nearest containing root', () => {
+  // An Electron main process started from an arbitrary node_modules depth has no
+  // fixed number of hops to the app root. Searching for the directory that
+  // actually holds the exe keeps it working instead of yielding empty strings.
+  const root = mkdtempSync(join(tmpdir(), 'dsh-desktop-deep-'));
+  const app = join(root, 'DSH Desktop');
+  const deep = join(app, 'resources', 'app', 'node_modules', 'some', 'weird', 'bin');
+  mkdirSync(deep, { recursive: true });
+  writeFileSync(join(app, DEFAULT_EXE_NAME), '');
+
+  const install = findDesktopInstall({ execPath: join(deep, 'helper.exe'), env: {} });
+  assert.equal(install.appRoot, app);
+  assert.equal(install.exePath, join(app, DEFAULT_EXE_NAME));
+});
+
 test('settings override the detected executable and icon', () => {
   const layout = fakeInstall();
   const install = findDesktopInstall({
