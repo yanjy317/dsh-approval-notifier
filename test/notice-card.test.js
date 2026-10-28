@@ -250,6 +250,33 @@ test('a long line is clipped to one preview row, and 展开 reveals the rest', (
   assert.ok(buttonLabels(expanded).includes('收起'), 'and offers a way back');
 });
 
+test('expanding a single long line shows that whole line back', () => {
+  // The common real case: a notice whose only body line is one long command or
+  // reason. The preview clips it, and expanding must restore the full text --
+  // it used to render only the lines *after* the first, so the toggle appeared
+  // and then did nothing at all.
+  const { client, internals, mount } = loadClient();
+  const { store } = makeStore(internals);
+  const get = renderStack(mount, client, store);
+
+  const long = 'escalate sandbox: ' + 'y'.repeat(300);
+  store.add({
+    key: 'approval|a1',
+    kind: 'approval',
+    sessionId: 's1',
+    title: '需要你确认：pwsh',
+    lines: ['需要你确认：pwsh', long],
+  });
+
+  const collapsed = cardFor(get(), client, 'approval|a1');
+  assert.ok(!textOf(collapsed).includes(long), 'the long line is clipped while collapsed');
+  assert.ok(buttonLabels(collapsed).includes('展开'), 'and the card offers to expand');
+
+  press(collapsed, '展开');
+  const expanded = cardFor(get(), client, 'approval|a1');
+  assert.ok(textOf(expanded).includes(long), 'expanding restores the whole line');
+});
+
 test('a short notice needs no expander at all', () => {
   const { client, internals, mount } = loadClient();
   const { store } = makeStore(internals);
